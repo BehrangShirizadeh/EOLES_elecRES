@@ -27,12 +27,12 @@ $include inputs/dem_input.csv
 $offdelim
 /;
 $Onlisting
-parameter CAPEX(tec) 'annualized capex cost in M€/GW/year' /offshore 92.82,onshore 55.44,PV 34.54,battery 14.38/ ;
-parameter fOM(tec) 'annualized fixed operation and maintenance costs M€/GW' /offshore 2.78,onshore 1.22,PV 0.86,battery 0.201/ ;
-parameter fuel_costs(tec) 'fuel cost in M€/GWh' /offshore 0,onshore 0,PV 0,battery 0.0026/;
-Parameter fixed_costs(tec) 'Fixed costs in M€/GW';
+parameter CAPEX(tec) 'annualized capex cost in Mâ‚¬/GW/year' /offshore 92.82,onshore 55.44,PV 34.54,battery 14.38/ ;
+parameter fOM(tec) 'annualized fixed operation and maintenance costs Mâ‚¬/GW' /offshore 2.78,onshore 1.22,PV 0.86,battery 0.201/ ;
+parameter fuel_costs(tec) 'fuel cost in Mâ‚¬/GWh' /offshore 0,onshore 0,PV 0,battery 0.0026/;
+Parameter fixed_costs(tec) 'Fixed costs in Mâ‚¬/GW';
 fixed_costs(tec) = (CAPEX(tec)+fOM(tec));
-Parameter variable_costs(tec) 'Variable costs in M€/GWh';
+Parameter variable_costs(tec) 'Variable costs in Mâ‚¬/GWh';
 variable_costs(tec)= fuel_costs(tec);
 scalar bat_eff_in 'battery charging efficiency' /0.9/;
 scalar bat_eff_out 'battery decharging efficiency' /0.8/;
@@ -101,7 +101,7 @@ file result /result1.txt/ ;
 put result ;
 put '                            the main results' //
 //
-'I)Overall investment cost is' cost.l 'b€' //
+'I)Overall investment cost is' cost.l 'bâ‚¬' //
 //
 'II)the Renewable capacity ' //
 'PV              'capa.l('PV')'  GW'//
