@@ -199,7 +199,7 @@ put '                            the main results' //
 ;
 file results11 /results1.csv / ;
 *the .csv file
-put results;
+put results11;
 results11.pc=5;
 put 'hour'; put 'Offshore';  put 'Onshore'; put 'PV'; put 'lake' ; put 'river' ; put 'PHS old' ; put 'PHS new' ; put 'battery'; put 'demand'/ ;
 loop (h,
