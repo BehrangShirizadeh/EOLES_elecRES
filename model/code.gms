@@ -9,14 +9,11 @@ $Offtext
 *                                Defining the sets
 *-------------------------------------------------------------------------------
 sets     h               'all hours'             /0*8783/
-         hh              'experimental period'   /0*100/
+         i(h)            'experimental period'   /0*100/
          m               'month'                 /jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec/
-         first(h)        'the first hour'
-         last(h)         'the last hour'
          tec             'technology'            /offshore, onshore, PV, river, lake, PHS1, PHS2, battery/
          vre(tec)        'variable tecs'         /offshore, onshore, PV/;
-first(h) =  yes$(ord(h) eq 1);
-last(h)  =  yes$(ord(h) eq card(h));
+alias(h,hh);
 *-------------------------------------------------------------------------------
 *                                Inputs
 *-------------------------------------------------------------------------------
@@ -85,11 +82,11 @@ scalar turb_eff2 'turbine output efficiency' /0.9/;
 *-------------------------------------------------------------------------------
 variables        GENE(tec,h)     'energy generation'
                  CAPA(tec)       'capacity'
-                 STORED(h)       'stored energy'
+                 STORAGE(h)      'hourly electricity input of battery storage'
                  COST            'final investment cost'
                  PUMP1(h)        'pumping for older PHS facilities'
                  PUMP2(h)        'pumping for new PHS faciltiies'
-positive variables GENE(tec,h), CAPA(tec), STORED(h), PUMP1(h), PUMP2(h);
+positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP1(h), PUMP2(h);
 equations        gene_vre        'variables renewable profiles generation'
                  gene_cap        'capacity and genration relation for technologies'
                  batt_max        'generation of battery should be less than stored energy'
@@ -101,12 +98,12 @@ equations        gene_vre        'variables renewable profiles generation'
                  obj             'the final objective function which is COST';
 gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
 gene_cap(tec,h)..                CAPA(tec)               =g=     GENE(tec,h);
-batt_max..                       sum(h,GENE('battery',h))=l=     bat_eff_out*bat_eff_in*sum(h,STORED(h));
+batt_max..                       sum(h,GENE('battery',h))=l=     bat_eff_out*bat_eff_in*sum(h,STORAGE(h));
 lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h));
-storage_const(first,last)..      STORED(first)           =e=     STORED(last);
+storage_const..                  sum(h$(ord(h)=1),STORAGE(h)*bat_eff_in - GENE('battery',h)/bat_eff_out) =e= sum(h$(ord(h)<=card(h)), STORAGE(h)*bat_eff_in - GENE('battery',h)/bat_eff_out);
 PHS1_max..                       sum(h,GENE('PHS1',h))   =l=     turb_eff1*pump_eff1*sum(h,PUMP1(h));
 PHS2_max..                       sum(h,GENE('PHS2',h))   =l=     turb_eff2*pump_eff2*sum(h,PUMP2(h));
-adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + PUMP1(h) + STORED(h) + PUMP2(h);
+adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + PUMP1(h) + STORAGE(h) + PUMP2(h);
 obj..                            COST                    =e=     (sum(tec,CAPA(tec)*fixed_costs(tec)) +sum((tec,h),GENE(tec,h)*variable_costs(tec)))/1000;
 *-------------------------------------------------------------------------------
 *                                Initial and fixed values
@@ -129,7 +126,7 @@ option SOLPRINT = OFF;
 *-------------------------------------------------------------------------------
 *                                Solve statement
 *-------------------------------------------------------------------------------
-$If exist flore_p1.gdx execute_loadpoint 'flore_p1';
+$If exist res_p1.gdx execute_loadpoint 'res_p1';
 Solve flore using lp minimizing COST;
 *-------------------------------------------------------------------------------
 *                                Display statement
@@ -141,11 +138,11 @@ display demand;
 parameter sumdemand      'the whole demand per year in TWh';
 sumdemand =  sum(h,demand(h))/1000;
 parameter sumgene        'the whole generation per year in TWh';
-sumgene = sum((tec,h),gene.l(tec,h))/1000 - sum (h,gene.l('battery',h))/1000 - sum(h,GENE.l('PHS1',h))/1000;
+sumgene = sum((tec,h),GENE.l(tec,h))/1000 - sum (h,gene.l('battery',h))/1000 - sum(h,GENE.l('PHS1',h))/1000;
 display sumdemand; display sumgene;
-parameter storage 'needed energy storage per year in TWh';
-storage = sum (h,gene.l('battery',h))/1000;
-display storage;
+parameter battery_storage 'needed energy storage per year in TWh';
+battery_storage = sum (h,GENE.l('battery',h))/1000;
+display battery_storage;
 parameter sumgene_river  'yearly hydro-river energy generation in TWh';
 sumgene_river = sum(h,GENE.l('river',h))/1000;
 parameter sumgene_lake  'yearly hydro-lake energy generation in TWh';
@@ -194,7 +191,9 @@ put '                            the main results' //
 'Battery Storage 'capa.l('battery')'     GW' //
 //
 'III)Needed storage' //
-'Storage         'storage'       GWh' //
+'Battery Storage         'battery_storage'       TWh' //
+'Old PHS Storage         'sumgene_PHS1'       TWh' //
+'New PHS Storage         'sumgene_PHS2'       TWh' //
 //
 ;
 file results11 /results1.csv / ;
