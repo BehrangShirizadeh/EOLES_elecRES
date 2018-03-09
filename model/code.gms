@@ -11,10 +11,9 @@ $Offtext
 sets     i               'all hours'                     /0*8783/
          h(i)            'experimental period'           /0*4000/
          m               'month'                         /jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec/
-         tec             'technology'                    /offshore, onshore, PV, river, lake, PHS, battery/
+         tec             'technology'                    /offshore, onshore, PV, river, lake, PHS, battery, biogas/
          vre(tec)        'variable tecs'                 /offshore, onshore, PV/
-         FCR(tec)        'technologies for FCR'          /battery/
-         FRR(tec)        'technologies for upward FRR'   /lake, PHS, battery/
+         FRR(tec)        'technologies for upward FRR'   /lake, PHS, battery, biogas/
 ;
 alias(h,hh);
 *-------------------------------------------------------------------------------
@@ -63,29 +62,44 @@ $ondelim
 $include  inputs/reserve_requirements.csv
 $offdelim
 / ;
-$Onlisting
-
+parameter capa_ex(tec) 'existing capacities of the technologies by December 2017 in GW'
+*Resource: RTE
+/
+$ondelim
+$include  inputs/existing_capacities.csv
+$offdelim
+/ ;
 $ontext
-Resource: EUR 26950 EN – Joint Research Centre – Institute for Energy and Transport;
+Resource for the prices : EUR 26950 EN – Joint Research Centre – Institute for Energy and Transport;
 "Energy Technology Reference Indicator (ETRI) projections for 2010-2050", 2014, ISBN 978-92-79-44403-6.
 $offtext
-parameter capa_ex(tec) 'existing capacities of the technologies by December 2017 in GW' /offshore 0,onshore 13.541,PV 7.513,river 10.62, lake 10.12,PHS 4.94,battery 0/;
-parameter CAPEX(tec) 'annualized capex cost in M€/GW/year' /offshore 92.82,onshore 55.44,PV 34.54,river 108,lake 65.15,PHS 12.56,battery 14.38/ ;
-parameter fOM(tec) 'annualized fixed operation and maintenance costs M€/GW' /offshore 2.78,onshore 1.22,PV 0.86,river 1.62,lake 0.977,PHS 0.188,battery 0.201/ ;
-parameter fuel_costs(tec) 'fuel cost in M€/GWh' /offshore 0,onshore 0,PV 0,river 0.005,lake 0.003,PHS 0,battery 0.0026/;
-Parameter fixed_costs(tec) 'Fixed costs in M€/GW';
-fixed_costs(tec) = (CAPEX(tec)+fOM(tec));
-Parameter variable_costs(tec) 'Variable costs in M€/GWh';
-variable_costs(tec)= fuel_costs(tec);
-Parameter pump_capa 'pumping capacity in GWh';
-pump_capa = 5.048;
+parameter capex(tec) 'annualized capex cost in M€/GW/year'
+/
+$ondelim
+$include  inputs/annuities.csv
+$offdelim
+/ ;
+parameter fOM(tec) 'annualized fixed operation and maintenance costs M€/GW'
+/
+$ondelim
+$include  inputs/fO&M.csv
+$offdelim
+/ ;
+Parameter vOM(tec) 'Variable operation and maintenance costs in M€/GWh'
+/
+$ondelim
+$include  inputs/vO&M.csv
+$offdelim
+/ ;
+$Onlisting
+scalar pump_capa 'pumping capacity in GWh' /9.3/;
+scalar reservoir_max 'maximum volume of energy can be stored in PHS reservoir' /180/;
 scalar bat_eff_in 'battery charging efficiency' /0.9/;
 scalar bat_eff_out 'battery decharging efficiency' /0.9/;
 scalar pump_eff 'pump input efficiency' /0.95/;
 scalar turb_eff 'turbine output efficiency' /0.9/;
-scalar fcr_requirement 'FCR capacity to be available in GW'    /0.6/;
 scalar load_uncertainty 'uncertainty coefficient for hourly demand' /0.01/;
-scalar delta 'load variation factor'     /0.05/;
+scalar delta 'load variation factor'     /0.1/;
 *-------------------------------------------------------------------------------
 *                                Model
 *-------------------------------------------------------------------------------
@@ -94,12 +108,10 @@ variables        GENE(tec,h)     'energy generation'
                  STORAGE(h)      'hourly electricity input of battery storage'
                  COST            'final investment cost'
                  PUMP(h)         'pumping for PHS facilities'
-                 RSV_FCR(FCR)    'required frequency containment reserve'
                  RSV_FRR(FRR)    'required upward frequency restoration reserve'
-positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h), RSV_FCR(FCR),RSV_FRR(FRR);
+positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h) ,RSV_FRR(FRR);
 equations        gene_vre        'variables renewable profiles generation'
                  gene_capa       'capacity and genration relation for technologies'
-                 capa_FCR        'capacity needed for the primary reserve requirements'
                  capa_FRR        'capacity needed for the secondary reserve requirements'
                  batt_max        'generation of battery should be less than stored energy'
                  lake_res        'constraint on water for lake reservoirs'
@@ -110,23 +122,22 @@ equations        gene_vre        'variables renewable profiles generation'
                  obj             'the final objective function which is COST';
 gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
 capa_FRR(FRR,h)..                CAPA(FRR)               =g=     GENE(FRR,h) + RSV_FRR(FRR);
-capa_FCR(FCR,h)..                CAPA(FCR)               =g=     GENE(FCR,h) + RSV_FCR(FCR);
 batt_max(h)..                    GENE('battery',h)       =l=     sum(hh$(ord(hh)<ord(h)),STORAGE(hh)*bat_eff_in - GENE('battery',hh)/bat_eff_out);batt_max..                       sum(h,GENE('battery',h))=l=     bat_eff_out*bat_eff_in*sum(h,STORAGE(h));
 lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h));
 PHS_max(h)..                     GENE('PHS',h)           =l=     sum(hh$(ord(hh)<ord(h)),PUMP(hh)*pump_eff - GENE('PHS',hh)/turb_eff);
 reserves_FCR..                   sum(FCR, RSV_FCR(FCR))  =e=     fcr_requirement;
 reserves_FRR..                   sum(FRR, RSV_FRR(FRR))  =e=     sum(vre,epsilon(vre)*CAPA(vre))+smax(h,demand(h))*load_uncertainty*(1+delta);
 adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + PUMP(h) + STORAGE(h);
-obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*fixed_costs(tec)) +sum((tec,h),GENE(tec,h)*variable_costs(tec)))/1000;
+obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+sum(tec,(CAPA(tec)*fOM(tec))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
 *-------------------------------------------------------------------------------
 *                                Initial and fixed values
 *-------------------------------------------------------------------------------
 CAPA.lo(tec) = capa_ex(tec);
-CAPA.fx('PHS') = 9.3;
+CAPA.fx('PHS') = pump_capa;
 CAPA.fx('river')= capa_ex('river');
-*CAPA.fx('lake') = 13;
+CAPA.fx('lake') = 13;
 CAPA.up('onshore') = 174;
-CAPA.up('offshore') = 66;
+PUMP.up(h) = pump_capa;
 *-------------------------------------------------------------------------------
 *                                Model options
 *-------------------------------------------------------------------------------
@@ -171,14 +182,19 @@ parameter sumgene_onshore  'yearly onshore energy generation in TWh';
 sumgene_onshore = sum(h,GENE.l('onshore',h))/1000;
 parameter sumgene_PV  'yearly PV energy generation in TWh';
 sumgene_PV = sum(h,GENE.l('PV',h))/1000;
+parameter sumgene_biogas 'yearly biogas generation in TWh';
+sumgene_biogas = sum(h,GENE.l('biogas',h))/1000;
 display sumgene_river;
 display sumgene_lake;
 display sumgene_PHS;
 display sumgene_offshore;
 display sumgene_onshore;
 display sumgene_PV;
-display RSV_FCR.l;
+display sumgene_biogas;;
 display RSV_FRR.l;
+Parameter lcoe(tec);
+lcoe(tec) = ((CAPA.l(tec)*(fOM(tec)+capex(tec)))+(sum(h,GENE.l(tec,h))*vOM(tec)))/sum(h,GENE.l(tec,h))*1000;
+display lcoe;
 *-------------------------------------------------------------------------------
 *                                Output
 *-------------------------------------------------------------------------------
@@ -201,6 +217,7 @@ put '                            the main results' //
 'onsore          'capa.l('onshore')'     GW' //
 'run of river    'CAPA.l('river') 'GW' //
 'lake            'CAPA.l('lake') 'GW' //
+'biogas          'CAPA.l('biogas')' GW'// 
 'Pumped Storage  'CAPA.l('PHS') 'GW' //
 'Battery Storage 'capa.l('battery')'     GW' //
 //
@@ -208,11 +225,9 @@ put '                            the main results' //
 'Battery Storage         'battery_storage'       TWh' //
 'PHS Storage             'sumgene_PHS'       TWh' //
 //
-'IV)Primary reserve requirements'//
-'Battery                 'RSV_FCR.l('battery') 'GW'//
-//
-'V)Secondary reserve requirements'//
+'IV)Secondary reserve requirements'//
 'lake                    'RSV_FRR.l('lake') 'GW'//
+'biogass                 'RSV_FRR.l('biogas')  'GW'//
 'Pumped Storage          'RSV_FRR.l('PHS') 'GW'//
 'Battery                 'RSV_FRR.l('battery') 'GW'//
 //
@@ -221,9 +236,9 @@ file results4 /results41.csv / ;
 *the .csv file
 put results4;
 results4.pc=5;
-put 'hour'; put 'Offshore';  put 'Onshore'; put 'PV'; put 'lake' ; put 'river' ; put 'PHS' ; put 'battery'; put 'demand'/ ;
+put 'hour'; put 'Offshore';  put 'Onshore'; put 'PV'; put 'lake' ; put 'river' ; put 'biogas' ; put 'PHS' ; put 'battery'; put 'demand'/ ;
 loop (h,
-put h.tl; put gene.l('offshore',h); put gene.l('onshore',h); put gene.l('PV',h); put GENE.l('lake',h);put GENE.l('river',h);put GENE.l('PHS',h);put gene.l('battery',h); put demand(h)/ ;
+put h.tl; put gene.l('offshore',h); put gene.l('onshore',h); put gene.l('PV',h); put GENE.l('lake',h); put GENE.l('river',h); put GENE.l('biogas',h); put GENE.l('PHS',h);put gene.l('battery',h); put demand(h)/ ;
 ;);
 
 $onecho > sedscript
