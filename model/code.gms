@@ -1,8 +1,14 @@
 $OnText
 French power sector financial modelling for only renewable energies as supply technologies (Offshore and Onshore wind, PV and Hydro)
-and Battery and PHS (pumped hydro storage) as storage technologies, considering reserve requirements, for 2016;
+and Battery and PHS (pumped hydro storage) as storage technologies,including primary and secondary reserve requirements for 2016;
+
+Offshore and onshore wind power and Solar power and hydro-lake capacities as well as battery storage capacity are chosen endogenousely, while hydroelectricity run-of-river and Phumped hydro storage capacities are chosen exogenousely.
+
+Existing capacities by December 2017 are also entered as lower bound of each capacity, and investment cost for existing capacities has been considered zero.
+
 Linear optimisation using one-hour time step with respect to Investment Cost.
-By Behrang SHIRIZADEH -  March 2018
+
+By Behrang SHIRIZADEH -  February 2018
 $Offtext
 
 *-------------------------------------------------------------------------------
@@ -39,7 +45,7 @@ $offdelim
 parameter demand(i) 'demand profile in each hour in kW'
 /
 $ondelim
-$include inputs/dem_input.csv
+$include inputs/dem_electricity.csv
 $offdelim
 /;
 Parameter lake_inflows(m) 'monthly lake inflows in GWh'
@@ -62,6 +68,7 @@ $ondelim
 $include  inputs/reserve_requirements.csv
 $offdelim
 / ;
+
 parameter capa_ex(tec) 'existing capacities of the technologies by December 2017 in GW'
 *Resource: RTE
 /
@@ -105,12 +112,12 @@ scalar delta 'load variation factor'     /0.1/;
 *                                Model
 *-------------------------------------------------------------------------------
 variables        GENE(tec,h)     'energy generation'
-                 CAPA(tec)       'capacity'
+                 CAPA(tec)       'overal capacity capacity'
                  STORAGE(h)      'hourly electricity input of battery storage'
                  COST            'final investment cost'
                  PUMP(h)         'pumping for PHS facilities'
                  RSV_FRR(FRR)    'required upward frequency restoration reserve'
-positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h) ,RSV_FRR(FRR);
+positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h),RSV_FRR(FRR) ;
 equations        gene_vre        'variables renewable profiles generation'
                  gene_capa       'capacity and genration relation for technologies'
                  capa_FRR        'capacity needed for the secondary reserve requirements'
@@ -123,8 +130,9 @@ equations        gene_vre        'variables renewable profiles generation'
                  reserves_FRR    'FRR requirement'
                  obj             'the final objective function which is COST';
 gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
+gene_capa(tec,h)..               CAPA(tec)               =g=     GENE(tec,h);
 capa_FRR(FRR,h)..                CAPA(FRR)               =g=     GENE(FRR,h) + RSV_FRR(FRR);
-batt_max(h)..                    GENE('battery',h)       =l=     sum(hh$(ord(hh)<ord(h)),STORAGE(hh)*bat_eff_in - GENE('battery',hh)/bat_eff_out);batt_max..                       sum(h,GENE('battery',h))=l=     bat_eff_out*bat_eff_in*sum(h,STORAGE(h));
+batt_max(h)..                    GENE('battery',h)       =l=     sum(hh$(ord(hh)<ord(h)),STORAGE(hh)*bat_eff_in - GENE('battery',hh)/bat_eff_out);
 lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h));
 PHS_max(h)..                     GENE('PHS',h)           =l=     sum(hh$(ord(hh)<ord(h)),PUMP(hh)*pump_eff - GENE('PHS',hh)/turb_eff);
 reservoir_cap(h)..               reservoir_max           =g=     sum(hh$(ord(hh)<ord(h)),pump_eff*PUMP(hh)-GENE('PHS',hh)/turb_eff)/1000 ;
@@ -168,10 +176,10 @@ display demand;
 parameter sumdemand      'the whole demand per year in TWh';
 sumdemand =  sum(h,demand(h))/1000;
 parameter sumgene        'the whole generation per year in TWh';
-sumgene = sum((tec,h),GENE.l(tec,h))/1000 - sum (h,gene.l('battery',h))/1000 - sum(h,GENE.l('PHS',h))/1000;
+sumgene = sum((tec,h),gene.l(tec,h))/1000 - sum (h,gene.l('battery',h))/1000 - sum(h,GENE.l('PHS',h))/1000;
 display sumdemand; display sumgene;
 parameter battery_storage 'needed energy storage per year in TWh';
-battery_storage = sum (h,GENE.l('battery',h))/1000;
+battery_storage = sum (h,gene.l('battery',h))/1000;
 display battery_storage;
 parameter sumgene_river  'yearly hydro-river energy generation in TWh';
 sumgene_river = sum(h,GENE.l('river',h))/1000;
@@ -193,7 +201,7 @@ display sumgene_PHS;
 display sumgene_offshore;
 display sumgene_onshore;
 display sumgene_PV;
-display sumgene_biogas;;
+display sumgene_biogas;
 display RSV_FRR.l;
 Parameter lcoe(tec);
 lcoe(tec) = ((CAPA.l(tec)*(fOM(tec)+capex(tec)))+(sum(h,GENE.l(tec,h))*vOM(tec)))/sum(h,GENE.l(tec,h))*1000;
@@ -208,7 +216,7 @@ The .csv file to have a fine output with hourly data for final data processing a
 $Offtext
 
 file results /results4.txt/ ;
-*the .txt file  
+*the .txt file
 put results;
 put '                            the main results' //
 //
@@ -220,13 +228,14 @@ put '                            the main results' //
 'onsore          'capa.l('onshore')'     GW' //
 'run of river    'CAPA.l('river') 'GW' //
 'lake            'CAPA.l('lake') 'GW' //
-'biogas          'CAPA.l('biogas')' GW'// 
+'biogas          'CAPA.l('biogas')' GW'//
 'Pumped Storage  'CAPA.l('PHS') 'GW' //
 'Battery Storage 'capa.l('battery')'     GW' //
 //
-'III)Needed storage' //
+'III)Needed storage volume for battery and PHS' //
 'Battery Storage         'battery_storage'       TWh' //
 'PHS Storage             'sumgene_PHS'       TWh' //
+
 //
 'IV)Secondary reserve requirements'//
 'lake                    'RSV_FRR.l('lake') 'GW'//
@@ -234,14 +243,19 @@ put '                            the main results' //
 'Pumped Storage          'RSV_FRR.l('PHS') 'GW'//
 'Battery                 'RSV_FRR.l('battery') 'GW'//
 //
+
 ;
 file results4 /results41.csv / ;
 *the .csv file
+parameter nSTORAGE(h);
+nSTORAGE(h) = 0 - STORAGE.l(h);
+parameter nPUMP(h);
+nPUMP(h) = 0 - PUMP.l(h);
 put results4;
 results4.pc=5;
-put 'hour'; put 'Offshore';  put 'Onshore'; put 'PV'; put 'lake' ; put 'river' ; put 'biogas' ; put 'PHS' ; put 'battery'; put 'demand'/ ;
+put 'hour'; put 'Offshore';  put 'Onshore'; put 'PV'; put 'lake' ; put 'river' ; put 'biogas' ; put 'PHS' ; put 'battery'; put 'demand' ;put 'Electrical Storage' ;put 'Pump Storage'/ ;
 loop (h,
-put h.tl; put gene.l('offshore',h); put gene.l('onshore',h); put gene.l('PV',h); put GENE.l('lake',h); put GENE.l('river',h); put GENE.l('biogas',h); put GENE.l('PHS',h);put gene.l('battery',h); put demand(h)/ ;
+put h.tl; put gene.l('offshore',h); put gene.l('onshore',h); put gene.l('PV',h); put GENE.l('lake',h);put GENE.l('river',h); put GENE.l('biogas',h); put GENE.l('PHS',h); put gene.l('battery',h); put demand(h); put nSTORAGE(h) ; put nPUMP(h)/
 ;);
 
 $onecho > sedscript
