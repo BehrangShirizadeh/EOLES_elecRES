@@ -39,7 +39,7 @@ $Offlisting
 parameter load_factor(vre,i) 'Production profiles of VRE'
 /
 $ondelim
-$include  inputs/vre_inputs.csv
+$include  inputs/vre_inputs_max.csv
 $offdelim
 /;
 parameter demand(i) 'demand profile in each hour in kW'
@@ -116,8 +116,8 @@ variables        GENE(tec,h)     'energy generation'
                  STORAGE(h)      'hourly electricity input of battery storage'
                  COST            'final investment cost'
                  PUMP(h)         'pumping for PHS facilities'
-                 RSV_FRR(FRR)    'required upward frequency restoration reserve'
-positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h),RSV_FRR(FRR) ;
+                 RSV_FRR(FRR,h)  'required upward frequency restoration reserve'
+positive variables GENE(tec,h), CAPA(tec), STORAGE(h), PUMP(h),RSV_FRR(FRR,h) ;
 equations        gene_vre        'variables renewable profiles generation'
                  gene_capa       'capacity and genration relation for technologies'
                  capa_FRR        'capacity needed for the secondary reserve requirements'
@@ -131,13 +131,13 @@ equations        gene_vre        'variables renewable profiles generation'
                  obj             'the final objective function which is COST';
 gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
 gene_capa(tec,h)..               CAPA(tec)               =g=     GENE(tec,h);
-capa_FRR(FRR,h)..                CAPA(FRR)               =g=     GENE(FRR,h) + RSV_FRR(FRR);
+capa_FRR(FRR,h)..                CAPA(FRR)               =g=     GENE(FRR,h) + RSV_FRR(FRR,h);
 batt_max(h)..                    GENE('battery',h)       =l=     sum(hh$(ord(hh)<ord(h)),STORAGE(hh)*bat_eff_in - GENE('battery',hh)/bat_eff_out);
 lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h));
 PHS_max(h)..                     GENE('PHS',h)           =l=     sum(hh$(ord(hh)<ord(h)),PUMP(hh)*pump_eff - GENE('PHS',hh)/turb_eff);
 reservoir_cap(h)..               reservoir_max           =g=     sum(hh$(ord(hh)<ord(h)),pump_eff*PUMP(hh)-GENE('PHS',hh)/turb_eff)/1000 ;
 biogas_const..                   sum(h,GENE('biogas',h)) =l=     max_biogas*1000;
-reserves_FRR..                   sum(FRR, RSV_FRR(FRR))  =e=     sum(vre,epsilon(vre)*CAPA(vre))+smax(h,demand(h))*load_uncertainty*(1+delta);
+reserves_FRR(h)..                sum(FRR, RSV_FRR(FRR,h))=e=     sum(vre,epsilon(vre)*CAPA(vre))+ demand(h)*load_uncertainty*(1+delta);
 adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + PUMP(h) + STORAGE(h);
 obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+sum(tec,(CAPA(tec)*fOM(tec))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
 *-------------------------------------------------------------------------------
@@ -203,6 +203,21 @@ display sumgene_onshore;
 display sumgene_PV;
 display sumgene_biogas;
 display RSV_FRR.l;
+parameter sum_FRR 'the whole yearly energy budgeted for reserves in TWh';
+sum_FRR = sum((h,FRR),RSV_FRR.l(FRR,h))/1000;
+display sum_FRR;
+parameter reserve_lake 'yearly energy spent from the lake power plants for the reserve requirements in TWh';
+reserve_lake = sum(h,RSV_FRR.l('lake',h))/1000;
+display reserve_lake;
+parameter reserve_battery 'yearly energy spent from the stored electricity in battery for the reserve requirements in TWh';
+reserve_battery = sum(h,RSV_FRR.l('battery',h))/1000;
+display reserve_battery;
+parameter reserve_PHS 'yearly energy spent from the energy stored in PHS stations for the reserve requirements in TWh';
+reserve_PHS = sum(h,RSV_FRR.l('PHS',h))/1000;
+display reserve_PHS;
+parameter reserve_biogas 'yearly energy spent from the biogas power plants for the reserve requirements in TWh';
+reserve_biogas = sum(h,RSV_FRR.l('biogas',h))/1000;
+display reserve_biogas;
 Parameter lcoe(tec);
 lcoe(tec) = ((CAPA.l(tec)*(fOM(tec)+capex(tec)))+(sum(h,GENE.l(tec,h))*vOM(tec)))/sum(h,GENE.l(tec,h))*1000;
 display lcoe;
@@ -238,10 +253,10 @@ put '                            the main results' //
 
 //
 'IV)Secondary reserve requirements'//
-'lake                    'RSV_FRR.l('lake') 'GW'//
-'biogass                 'RSV_FRR.l('biogas')  'GW'//
-'Pumped Storage          'RSV_FRR.l('PHS') 'GW'//
-'Battery                 'RSV_FRR.l('battery') 'GW'//
+'lake                    'smax(h,RSV_FRR.l('lake',h)) 'GW'//
+'biogass                 'smax(h,RSV_FRR.l('biogas',h))  'GW'//
+'Pumped Storage          'smax(h,RSV_FRR.l('PHS',h)) 'GW'//
+'Battery                 'smax(h,RSV_FRR.l('battery',h)) 'GW'//
 //
 
 ;
