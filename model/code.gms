@@ -111,14 +111,14 @@ scalar delta 'load variation factor'     /0.1/;
 *-------------------------------------------------------------------------------
 *                                Model
 *-------------------------------------------------------------------------------
-variables        GENE(tec,h)     'energy generation'
-                 CAPA(tec)       'overal capacity capacity'
-                 STORAGE(str,h)  'hourly electricity input of battery storage'
-                 STORED(str,h)   'energy stored in each storage technology'
-                 ENERGY(str)     'energy capacity of storage technologies'
-                 RSV(frr,h)      'required upward frequency restoration reserve'
-                 COST            'final investment cost'
-positive variables GENE(tec,h),CAPA(tec),STORAGE(str,h),STORED(str,h),ENERGY(str),RSV(frr,h) ;
+variables        GENE(tec,h)     'hourly energy generation in TWh'
+                 CAPA(tec)       'overal yearly installed capacity in GW'
+                 STORAGE(str,h)  'hourly electricity input of battery storage GW'
+                 STORED(str,h)   'energy stored in each storage technology in GWh'
+                 VOLUME(str)     'energy volume of storage technologies in GWh'
+                 RSV(frr,h)      'required upward frequency restoration reserve in GW'
+                 COST            'final investment cost in b€'
+positive variables GENE(tec,h),CAPA(tec),STORAGE(str,h),STORED(str,h),VOLUME(str),RSV(frr,h) ;
 equations        gene_vre        'variables renewable profiles generation'
                  gene_capa       'capacity and genration relation for technologies'
                  capa_frr        'capacity needed for the secondary reserve requirements'
@@ -136,18 +136,18 @@ capa_frr(frr,h)..                CAPA(frr)               =g=     GENE(frr,h) + R
 storing(h,h+1,str)..             STORED(str,h+1)         =e=     STORED(str,h) + STORAGE(str,h)*eta_in(str) - GENE(str,h)/eta_out(str);
 max_storage(str,h)..             GENE(str,h)             =l=     STORED(str,h);
 lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h));
-stored_cap(str,h)..              STORED(str,h)           =l=     ENERGY(str);
+stored_cap(str,h)..              STORED(str,h)           =l=     VOLUME(str);
 biogas_const..                   sum(h,GENE('biogas',h)) =l=     max_biogas*1000;
 reserves(h)..                    sum(frr, RSV(frr,h))    =e=     sum(vre,epsilon(vre)*CAPA(vre))+ demand(h)*load_uncertainty*(1+delta);
 adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + sum(str,STORAGE(str,h));
-obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+ sum(str,ENERGY(str)*capex_en(str))+sum(tec,(CAPA(tec)*fOM(tec))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
+obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+ sum(str,VOLUME(str)*capex_en(str))+sum(tec,(CAPA(tec)*fOM(tec))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
 *-------------------------------------------------------------------------------
 *                                Initial and fixed values
 *-------------------------------------------------------------------------------
 CAPA.lo(tec) = capa_ex(tec);
-CAPA.fx('phs') = pump_capa;
+CAPA.up('phs') = pump_capa;
 CAPA.fx('river')= capa_ex('river');
-CAPA.fx('lake') = 13;
+CAPA.up('lake') = 13;
 STORAGE.up('phs',h) = pump_capa;
 STORED.fx(str,'0') = 0;
 STORED.up('phs',h) = reservoir_max*1000;
@@ -224,9 +224,9 @@ Parameter lcoe(gen);
 lcoe(gen) = ((CAPA.l(gen)*(fOM(gen)+capex(gen)))+(sum(h,GENE.l(gen,h))*vOM(gen)))/sum(h,GENE.l(gen,h))*1000;
 display lcoe;
 parameter lcos(str);
-lcos(str) = ((CAPA.l(str)*(fOM(str)+capex(str)))+(sum(h,GENE.l(str,h))*vOM(str))+ENERGY.l(str)*capex_en(str))/sum(h,GENE.l(str,h))*1000;
+lcos(str) = ((CAPA.l(str)*(fOM(str)+capex(str)))+(sum(h,GENE.l(str,h))*vOM(str))+volume.l(str)*capex_en(str))/sum(h,GENE.l(str,h))*1000;
 display lcos;
-display ENERGY.l;
+display VOLUME.l;
 *-------------------------------------------------------------------------------
 *                                Output
 *-------------------------------------------------------------------------------
