@@ -3,6 +3,8 @@ Onshore,0
 PV,0
 river,0
 lake,0
-PHS,0
-Battery,0.0026
 biogas,0.0031
+PHS,0.008
+Battery,0.002
+hydrogene,0.01
+methane,0.0957015
