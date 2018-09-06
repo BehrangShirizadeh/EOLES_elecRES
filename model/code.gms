@@ -173,7 +173,8 @@ reserves(h)..                    sum(frr, RSV(frr,h))    =e=     sum(vre,epsilon
 *capa_ls(h)..                     DH(h)                   =l=     sum(hh$(ord(hh)>=ord(h)-5 and ord(hh)<=ord(h)),GENE('dsm',hh));
 *capa_ls2(h)..                    DH(h)                   =l=     sum(hh$(ord(hh)>=ord(h)+1 and ord(hh)<=ord(h)+6),DS(hh));
 *dsm_max..                        sum(h,GENE('dsm',h))    =l=     ls_max*1000;
-adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + sum(str,STORAGE(str,h)) + DS(h) ;
+adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + sum(str,STORAGE(str,h)) ;
+*adequacy(h)..                    sum(tec,GENE(tec,h))    =g=     demand(h) + sum(str,STORAGE(str,h)) + DS(h) ;
 obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+ sum(str,CAPACITY(str)*capex_en(str))+sum(tec,(CAPA(tec)*fOM(tec))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
 *-------------------------------------------------------------------------------
 *                                Initial and fixed values
