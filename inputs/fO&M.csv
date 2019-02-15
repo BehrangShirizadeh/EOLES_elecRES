@@ -1,5 +1,5 @@
-Offshore,47.6318
-Onshore,35.4477
+Offshore,47.0318
+Onshore,34.5477
 PV,9.226193333
 river,14.85
 lake,11.375
@@ -7,4 +7,4 @@ biogas,0
 gas,16.5
 PHS,7.5
 Battery,1.96
-methanation,71
+methanation,0
