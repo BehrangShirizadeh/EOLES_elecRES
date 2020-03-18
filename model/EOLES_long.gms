@@ -1,101 +1,96 @@
 *-------------------------------------------------------------------------------
-*                                Defining the sets
+*                                Defining the sets
 *-------------------------------------------------------------------------------
 sets
-         h               'all hours'                     /0*157679/
-         first(h)        'first hour'
-         last(h)         'last hour'
-         m               'month'                         /1*216/
-         tec             'technology'                    /offshore, onshore, pv, river, lake, biogas, gas, phs, battery, methanation/
-         gen(tec)        'power plants'                  /offshore, onshore, pv, river, lake, biogas, gas/
-         vre(tec)        'variable tecs'                 /offshore, onshore, pv/
-         ncomb(tec)      'non-combustible generation'    /offshore, onshore, pv, river, lake, phs, battery/
-         comb(tec)       'combustible generation techs'  /biogas, methanation/
-         str(tec)        'storage technologies'          /phs, battery, methanation/
-         frr(tec)        'technologies for upward FRR'   /lake, phs, battery, gas/
+         h               'all hours'                     /0*166439/
+         first(h)        'first hour'
+         last(h)         'last hour'
+         m               'month'                         /1*228/
+         tec             'technology'                    /offshore, onshore, pv, river, lake, biogas, gas, phs, battery, methanation/
+         gen(tec)        'power plants'                  /offshore, onshore, pv, river, lake, biogas, gas/
+         vre(tec)        'variable tecs'                 /offshore, onshore, pv, river/
+         ncomb(tec)      'non-combustible generation'    /offshore, onshore, pv, river, lake, phs, battery/
+         comb(tec)       'combustible generation techs'  /biogas, methanation/
+         str(tec)        'storage technologies'          /phs, battery, methanation/
+         frr(tec)        'technologies for upward FRR'   /lake, phs, battery, gas/
 ;
 
 first(h) = ord(h)=1;
 last(h) = ord(h)=card(h);
 alias(h,hh);
 *-------------------------------------------------------------------------------
-*                                Inputs
+*                                Inputs
 *-------------------------------------------------------------------------------
 $Offlisting
-parameter month(h)  'each month matched to its hour'
+parameter month(h)  'each month matched to its hour'
 /
 $ondelim
-$include  inputs/months_18.csv
+$include  inputs/months_19.csv
 $offdelim
 /;
 parameter load_factor(vre,h) 'Production profiles of VRE'
 /
 $ondelim
-$include  inputs/vre_profiles_18.csv
+$include  inputs/vre_profiles_19r.csv
 $offdelim
 /;
 parameter demand(h) 'demand profile in each hour in GW'
 /
 $ondelim
-$include inputs/demand_2050ADEME_18.csv
+$include inputs/demand_2050ADEME_19.csv
 $offdelim
 /;
 Parameter lake_inflows(m) 'monthly lake inflows in GWh'
 /
 $ondelim
-$include  inputs/lake_inflows18.csv
-$offdelim
-/ ;
-parameter gene_river(h) 'hourly run of river power generation in GWh'
-*Resource: RTE - Hourly nationwide electricity generation by sectors in 2016 for France
-/
-$ondelim
-$include  inputs/river_18.csv
+$include  inputs/lake19.csv
 $offdelim
 / ;
 parameter epsilon(vre) 'additional FRR requirement for variable renewable energies because of forecast errors'
 /
 $ondelim
-$include  inputs/reserve_requirements.csv
+$include  inputs/reserve_requirements.csv
 $offdelim
 / ;
 parameter capa_ex(tec) 'existing capacities of the technologies by December 2017 in GW'
 /
 $ondelim
-$include  inputs/existing_capas.csv
+$include  inputs/existing_capasn.csv
 $offdelim
 / ;
 parameter capa_max(tec) 'maximum capacities of the technologies in GW'
 /
 $ondelim
-$include  inputs/max_capas.csv
+$include  inputs/max_capasn.csv
 $offdelim
 / ;
 parameter capex(tec) 'annualized power capex cost in M€/GW/year'
 /
 $ondelim
-$include  inputs/annuities_18.csv
+$include  inputs/annuities_19.csv
 $offdelim
 / ;
 parameter capex_en(str) 'annualized energy capex cost of storage technologies in M€/GWh/year'
 /
 $ondelim
-$include  inputs/str_annuities_18.csv
+$include  inputs/str_annuities_19.csv
 $offdelim
 / ;
 parameter fOM(tec) 'annualized fixed operation and maintenance costs M€/GW/year'
 /
 $ondelim
-$include  inputs/fO&M_18.csv
+$include  inputs/fO&M_19.csv
 $offdelim
 / ;
 Parameter vOM(tec) 'Variable operation and maintenance costs in M€/GWh'
 /
 $ondelim
-$include  inputs/vO&M.csv
+$include  inputs/vO&M.csv
 $offdelim
 / ;
 $Onlisting
+parameter s_capex(str) 'charging related annuity of storage in M€/GW/year' /PHS 0, battery 0, methanation 1671.013948/;
+parameter s_opex(str)    'charging related fOM of storage in M€/GW/year'   /PHS 0, battery 0, methanation 1125.75/;
 parameter eta_in(str) 'charging efifciency of storage technologies' /PHS 0.95, battery 0.9, methanation 0.59/;
 parameter eta_out(str) 'discharging efficiency of storage technolgoies' /PHS 0.9, battery 0.95, methanation 0.45/;
 scalar pump_capa 'pumping capacity in GW' /9.3/;
@@ -103,76 +98,61 @@ scalar max_phs 'maximum volume of energy can be stored in PHS reservoir in TWh' 
 scalar max_biogas 'maxium yearly energy can be generated by biogas in TWh' /15/;
 scalar max_methanation 'maximum energy storable in methanation to not fonction as inter-annual storage in TWh' /16/
 scalar load_uncertainty 'uncertainty coefficient for hourly demand' /0.01/;
-scalar delta 'load variation factor'     /0.1/;
-parameter c_ch4 '18-year investment cost of methanation' /1514.8955/;
-parameter f_ch4 '18-year fixed OPEX of methanation' /1066.5/;
+scalar delta 'load variation factor'     /0.1/;
 *-------------------------------------------------------------------------------
-*                                Model
+*                                Model
 *-------------------------------------------------------------------------------
-variables        GENE(tec,h)     'hourly energy generation in TWh'
-                 CAPA(tec)       'overal yearly installed capacity in GW'
-                 STORAGE(str,h)  'hourly electricity input of each storagetechnology GW'
-                 STORED(str,h)   'energy stored in each storage technology in GWh'
-                 CAPACITY(str)   'energy volume of storage technologies in GWh'
-                 S(str)          'storage charging capacities in GW'
-                 RSV(frr,h)      'required upward frequency restoration reserve in GW'
-                 COST            'final investment cost in b€'
-positive variables GENE(tec,h),CAPA(tec),STORAGE(str,h),STORED(str,h),CAPACITY(str), s(str),RSV(frr,h) ;
-equations        gene_vre        'variables renewable profiles generation'
-                 gene_capa       'capacity and genration relation for technologies'
-                 combustion      'the relationship of combustible technologies'
-                 capa_frr        'capacity needed for the secondary reserve requirements'
-                 storing         'the definition of stored energy in the storage options'
-                 storage_const   'storage in the first hour is equal to the storage in the last hour'
-                 storage_con     'hourly storage can not be more than storage capacity'
-                 storage_capa    'hourly storage should be less than charging capacity of storage technology'
-                 lake_res        'constraint on water for lake reservoirs'
-                 stored_cap      'maximum energy that is stored in storage units'
-                 biogas_const    'maximum energy can be produced by biogas'
-                 reserves        'FRR requirement'
-                 adequacy        'supply/demand relation'
-                 obj             'the final objective function which is COST';
-gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
-gene_capa(tec,h)..               CAPA(tec)               =g=     GENE(tec,h);
-combustion(h)..                  GENE('gas',h)           =e=     sum(comb,GENE(comb,h));
-capa_frr(frr,h)..                CAPA(frr)               =g=     GENE(frr,h) + RSV(frr,h);
-storing(h,h+1,str)..             STORED(str,h+1)         =e=     STORED(str,h) + STORAGE(str,h)*eta_in(str) - GENE(str,h)/eta_out(str);
-storage_const(str,first,last)..  STORED(str,first)       =e=     STORED(str,last);
-lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h))/1000;
-stored_cap(str,h)..              STORED(str,h)           =l=     CAPACITY(str);
-storage_con(str)..               S(str)                  =l=     CAPA(str);
-storage_capa(str,h)..            S(str)                  =g=     STORAGE(str,h);
-biogas_const..                   sum(h,GENE('biogas',h)) =l=     max_biogas*1000*18;
-reserves(h)..                    sum(frr, RSV(frr,h))    =e=     sum(vre,epsilon(vre)*CAPA(vre))+ demand(h)*load_uncertainty*(1+delta);
-adequacy(h)..                    sum(ncomb,GENE(ncomb,h))+GENE('gas',h)    =g=     demand(h) + sum(str,STORAGE(str,h));
-obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+ sum(str,CAPACITY(str)*capex_en(str))+sum(tec,(CAPA(tec)*fOM(tec)))+(S('methanation')*(c_ch4+f_ch4)) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
+variables        GENE(tec,h)     'hourly energy generation in TWh'
+                 CAPA(tec)       'overal yearly installed capacity in GW'
+                 STORAGE(str,h)  'hourly electricity input of each storagetechnology GW'
+                 STORED(str,h)   'energy stored in each storage technology in GWh'
+                 CAPACITY(str)   'energy volume of storage technologies in GWh'
+                 S(str)          'storage charging capacities in GW'
+                 RSV(frr,h)      'required upward frequency restoration reserve in GW'
+                 COST            'final investment cost in b€'
+positive variables GENE(tec,h),CAPA(tec),STORAGE(str,h),STORED(str,h),CAPACITY(str), S(str),RSV(frr,h) ;
+equations        gene_vre        'variables renewable profiles generation'
+                 gene_capa       'capacity and genration relation for technologies'
+                 combustion      'the relationship of combustible technologies'
+                 capa_frr        'capacity needed for the secondary reserve requirements'
+                 storing         'the definition of stored energy in the storage options'
+                 storage_const   'storage in the first hour is equal to the storage in the last hour'
+                 storage_con     'charging power is equal or less than discharge power'
+                 storage_capa    'hourly storage should be less than charging capacity of storage technology'
+                 lake_res        'constraint on water for lake reservoirs'
+                 stored_cap      'maximum energy that is stored in storage units'
+                 biogas_const    'maximum energy can be produced by biogas'
+                 reserves        'FRR requirement'
+                 adequacy        'supply/demand relation'
+                 obj             'the final objective function which is COST';
+gene_vre(vre,h)..                GENE(vre,h)             =e=     CAPA(vre)*load_factor(vre,h);
+gene_capa(tec,h)..               CAPA(tec)               =g=     GENE(tec,h);
+combustion(h)..                  GENE('gas',h)           =e=     sum(comb,GENE(comb,h));
+capa_frr(frr,h)..                CAPA(frr)               =g=     GENE(frr,h) + RSV(frr,h);
+storing(h,h+1,str)..             STORED(str,h+1)         =e=     STORED(str,h) + STORAGE(str,h)*eta_in(str) - GENE(str,h)/eta_out(str);
+storage_const(str,first,last)..  STORED(str,first)       =e=     STORED(str,last) + STORAGE(str,last)*eta_in(str) - GENE(str,last)/eta_out(str);
+lake_res(m)..                    lake_inflows(m)         =g=     sum(h$(month(h) = ord(m)),GENE('lake',h))/1000;
+stored_cap(str,h)..              STORED(str,h)           =l=     CAPACITY(str);
+storage_con(str)..               S(str)                  =l=     CAPA(str);
+storage_capa(str,h)..            S(str)                  =g=     STORAGE(str,h);
+biogas_const..                   sum(h,GENE('biogas',h)) =l=     max_biogas*1000*19;
+reserves(h)..                    sum(frr, RSV(frr,h))    =e=     sum(vre,epsilon(vre)*CAPA(vre))+ demand(h)*load_uncertainty*(1+delta);
+adequacy(h)..                    sum(ncomb,GENE(ncomb,h))+GENE('gas',h)    =g=     demand(h) + sum(str,STORAGE(str,h));
+obj..                            COST                    =e=     (sum(tec,(CAPA(tec)-capa_ex(tec))*capex(tec))+ sum(str,CAPACITY(str)*capex_en(str))+sum(tec,(CAPA(tec)*fOM(tec)))+sum(str, S(str)*(s_opex(str)+s_capex(str))) +sum((tec,h),GENE(tec,h)*vOM(tec)))/1000;
 *-------------------------------------------------------------------------------
-*                                Initial and fixed values
+*                                Initial and fixed values
 *-------------------------------------------------------------------------------
 CAPA.fx('phs') = pump_capa;
-CAPA.fx('river')= capa_ex('river');
-CAPA.fx('lake') = 13;
-GENE.up('river',h) = gene_river(h)*capa_ex('river');
+*CAPA.fx('river')= capa_ex('river');
+CAPA.fx('lake') = 10.1;
 S.fx('phs') = pump_capa;
 CAPACITY.fx('phs') = max_phs*1000;
 CAPACITY.up('methanation') = max_methanation*1000;
-CAPA.up('offshore') = capa_max('offshore');
-CAPA.up('onshore') = capa_max('onshore');
-CAPA.up('pv') = capa_max('pv');
-*initial values
-CAPA.l('offshore') = 13;
-CAPA.l('onshore') = 80;
-CAPA.l('pv') = 122;
-CAPA.l('battery') = 20;
-CAPA.l('methanation') = 33;
-CAPA.l('biogas') = 33;
-CAPA.l('gas') = 33;
-CAPACITY.l('battery') = 70;
-CAPACITY.l('methanation') = 16000;
+CAPA.up(vre) = capa_max(vre);
 *----------------------------------------------------
 
 *-------------------------------------------------------------------------------
-*                                Model options
+*                                Model options
 *-------------------------------------------------------------------------------
 model RES_long /all/;
 option solvelink=0;
@@ -184,18 +164,18 @@ option limcol = 0;
 option limrow = 0;
 option SOLPRINT = OFF;
 *-------------------------------------------------------------------------------
-*                                Solve statement
+*                                Solve statement
 *-------------------------------------------------------------------------------
 $If exist RES_long_p.gdx execute_loadpoint 'RES_long_p';
 Solve RES_long using lp minimizing COST;
 *-------------------------------------------------------------------------------
-*                                Display statement
+*                                Display statement
 *-------------------------------------------------------------------------------
-parameter sumdemand      'the whole demand per period in TWh';
-sumdemand =  sum(h,demand(h))/1000;
+parameter sumdemand      'the whole demand per period in TWh';
+sumdemand =  sum(h,demand(h))/1000;
 parameter gene_tec(tec) 'the whole generation of each technology in TWh' ;
 gene_tec(tec) = sum(h,GENE.l(tec,h))/1000;
-parameter sumgene        'the whole generation per year in TWh';
+parameter sumgene        'the whole generation per year in TWh';
 sumgene = sum((gen,h),GENE.l(gen,h))/1000 - gene_tec('gas');
 parameter sum_FRR 'the whole yearly energy budgeted for reserves in TWh';
 sum_FRR = sum((h,frr),RSV.l(frr,h))/1000;
@@ -205,9 +185,8 @@ Parameter lcoe(gen);
 lcoe(gen) = (CAPA.l(gen)*(fOM(gen)+capex(gen))+ gene_tec(gen)*vOM(gen)*1000)/gene_tec(gen);
 parameter lcos(str);
 lcos(str) = ((CAPA.l(str)*(fOM(str)+capex(str)))+(sum(h,GENE.l(str,h))*vOM(str))+CAPACITY.l(str)*capex_en(str))/gene_tec(str);
-lcos('methanation') = (CAPA.l('methanation')*(capex('methanation')+fOM('methanation'))+S.l('methanation')*(c_ch4+f_ch4)+gene_tec('methanation')*vOM('methanation')+CAPACITY.l('methanation')*capex_en('methanation'))/gene_tec('methanation') + lcoe('gas');
 parameter cf(gen) 'load factor of generation technologies';
-cf(gen) = gene_tec(gen)*1000/(157680*CAPA.l(gen));
+cf(gen) = gene_tec(gen)*1000/(166440*CAPA.l(gen));
 parameter str_loss 'storage losses in % of power production';
 str_loss = (sum((str,h),STORAGE.l(str,h))-sum(str,gene_tec(str)*1000))/(sumgene*10);
 parameter lc 'load curtailment in %';
@@ -216,10 +195,10 @@ parameter lcoe_sys1 'the overall MWh cost of electricity in €';
 lcoe_sys1 = COST.l*1000/sumgene;
 parameter lcoe_sys2 'the overall MWh cost of electricity in €';
 lcoe_sys2 = COST.l*1000/sumdemand;
-parameter spot_price(h) 'marginal cost'    ;
+parameter spot_price(h) 'marginal cost'    ;
 spot_price(h) = 1000000*adequacy.m(h);
 parameter marginal_cost 'average value over the year of spot price in €/MWh';
-marginal_cost = sum(h,spot_price(h))/157680;
+marginal_cost = sum(h,spot_price(h))/166440;
 *-------------------------------------------------------------------------------
 display cost.l;
 display capa.l;
@@ -237,77 +216,77 @@ display lcoe_sys1;
 display lcoe_sys2;
 display marginal_cost;
 *-------------------------------------------------------------------------------
-*                                Output
+*                                Output
 *-------------------------------------------------------------------------------
-file results /'outputs/2000-2017.txt'/ ;
+file results /'outputs/2000-2018.txt'/ ;
 put results;
-put '     the main results' //
+put '     the main results' //
 //
 'I)Overall investment cost is' cost.l 'b€' //
 //
 'II)the Renewable capacity ' //
-'Offshore        'CAPA.l('offshore')'    GW'//
-'onsore          'CAPA.l('onshore')'     GW' //
-'PV              'CAPA.l('PV')'  GW'//
-'run of river    'CAPA.l('river') 'GW' //
-'lake            'CAPA.l('lake') 'GW' //
-'biogas          'CAPA.l('biogas')' GW'//
-'gas             'CAPA.l('gas')' GW'//
-'Battery         'CAPA.l('battery')' GW'//
-'PHS             'CAPA.l('phs')' GW'//
-'methanation     'CAPA.l('methanation')' GW'//
+'Offshore        'CAPA.l('offshore')'    GW'//
+'onsore          'CAPA.l('onshore')'     GW' //
+'PV              'CAPA.l('PV')'  GW'//
+'run of river    'CAPA.l('river') 'GW' //
+'lake            'CAPA.l('lake') 'GW' //
+'biogas          'CAPA.l('biogas')' GW'//
+'gas             'CAPA.l('gas')' GW'//
+'Battery         'CAPA.l('battery')' GW'//
+'PHS             'CAPA.l('phs')' GW'//
+'methanation     'CAPA.l('methanation')' GW'//
 //
 //
 'III)Needed storage volume' //
-'Battery Storage         'CAPACITY.l('battery')'         GWh' //
-'PHS Storage             'CAPACITY.l('phs')'             GWh'//
-'methane storage         'CAPACITY.l('methanation')'     GWh'//
+'Battery Storage         'CAPACITY.l('battery')'         GWh' //
+'PHS Storage             'CAPACITY.l('phs')'             GWh'//
+'methane storage         'CAPACITY.l('methanation')'     GWh'//
 //
 'IV)Secondary reserve requirements'//
-'lake                    'reserve('lake') 'GW'//
-'gas                     'reserve('gas')  'GW'//
-'Pumped Storage          'reserve('phs') 'GW'//
-'Battery                 'reserve('battery') 'GW'//
+'lake                    'reserve('lake') 'GW'//
+'gas                     'reserve('gas')  'GW'//
+'Pumped Storage          'reserve('phs') 'GW'//
+'Battery                 'reserve('battery') 'GW'//
 //
 'V)Overall yearly energy generation of each technology'//
-'Offshore        'gene_tec('offshore')'    TWh'//
-'onsore          'gene_tec('onshore')'     TWh' //
-'PV              'gene_tec('PV')'  TWh'//
-'run of river    'gene_tec('river') 'TWh' //
-'lake            'gene_tec('lake') 'TWh' //
-'biogas          'gene_tec('biogas')' TWh'//
-'gas             'gene_tec('gas')'  TWh'//
-'battery         'gene_tec('battery')' TWh'//
-'phs             'gene_tec('phs')'  TWh'//
-'Methanation     'gene_tec('methanation')'TWh'//
+'Offshore        'gene_tec('offshore')'    TWh'//
+'onsore          'gene_tec('onshore')'     TWh' //
+'PV              'gene_tec('PV')'  TWh'//
+'run of river    'gene_tec('river') 'TWh' //
+'lake            'gene_tec('lake') 'TWh' //
+'biogas          'gene_tec('biogas')' TWh'//
+'gas             'gene_tec('gas')'  TWh'//
+'battery         'gene_tec('battery')' TWh'//
+'phs             'gene_tec('phs')'  TWh'//
+'Methanation     'gene_tec('methanation')'TWh'//
 //
 'VI)more details'//
-'LCOE for Offshore       ' lcoe('offshore')' €/MWh'//
-'LCOE for Onshore        ' lcoe('onshore')' €/MWh'//
-'LCOE for PV             ' lcoe('pv')' €/MWh'//
-'LCOE for Run-of-river   ' lcoe('river')' €/MWh'//
-'LCOE for Lake           ' lcoe('lake')' €/MWh'//
-'LCOE for Biogas         ' lcoe('biogas')' €/MWh'//
-'LCOE for Gas            ' lcoe('gas')' €/MWh'//
-'LCOS for battery        ' lcos('battery')' €/MWh'//
+'LCOE for Offshore       ' lcoe('offshore')' €/MWh'//
+'LCOE for Onshore        ' lcoe('onshore')' €/MWh'//
+'LCOE for PV             ' lcoe('pv')' €/MWh'//
+'LCOE for Run-of-river   ' lcoe('river')' €/MWh'//
+'LCOE for Lake           ' lcoe('lake')' €/MWh'//
+'LCOE for Biogas         ' lcoe('biogas')' €/MWh'//
+'LCOE for Gas            ' lcoe('gas')' €/MWh'//
+'LCOS for battery        ' lcos('battery')' €/MWh'//
 'LCOS for pumped storage ' lcos('phs')' €/MWh'//
-'LCOS for methanation    ' lcos('methanation')' €/MWh'//
+'LCOS for methanation    ' lcos('methanation')' €/MWh'//
 //
 'Load Curtailment' lc'% and storage loss is 'str_loss'% of the produced power'//
 'system LCOE is ' lcoe_sys1 ' €/MWh or ' lcoe_sys2 ' €/MWh'//
 'and average spot price 'marginal_cost' €/MWh' //
 //
 'capacity factors'//
-'Offshore        'cf('offshore')//
-'onsore          'cf('onshore')//
-'PV              'cf('PV')//
-'run of river    'cf('river')//
-'lake            'cf('lake')//
-'biogas          'cf('biogas')//
-'gas             'cf('gas')//
+'Offshore        'cf('offshore')//
+'onsore          'cf('onshore')//
+'PV              'cf('PV')//
+'run of river    'cf('river')//
+'lake            'cf('lake')//
+'biogas          'cf('biogas')//
+'gas             'cf('gas')//
 ;
 *-------------------------------------------------------------------------------
-file hourly_generation /'outputs/2000-2017.csv' / ;
+file hourly_generation /'outputs/2000-2018.csv' / ;
 parameter nSTORAGE(str,h);
 nSTORAGE(str,h) = 0 - STORAGE.l(str,h);
 put hourly_generation;
@@ -317,5 +296,5 @@ loop (h,
 put h.tl; loop(tec, put gene.l(tec,h);) ;put demand(h); put nSTORAGE('PHS',h) ; put nSTORAGE('battery',h) ; put nSTORAGE('methanation',h) ; put spot_price(h)/
 ;);
 *-------------------------------------------------------------------------------
-*                                The End :D
+*                                The End :D
 *-------------------------------------------------------------------------------
