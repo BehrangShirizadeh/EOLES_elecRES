@@ -1,14 +1,6 @@
 $OnText
-French power sector financial modelling for only renewable energies as supply technologies (Offshore and Onshore wind, PV, Hydroelectricity and biogas)
-and Battery and PHS (pumped hydro storage) as storage technologies,including primary and secondary reserve requirements for meteo and electricity consumption data of 2016;
-
-Offshore and onshore wind power, Solar power and biogas capacities as well as battery storage and hydrogen (P2G) storage capacity are chosen endogenousely, while hydroelectricity lake and run-of-river and Phumped hydro storage capacities are chosen exogenousely.
-
-Existing capacities by December 2017 are also entered as lower bound of each capacity, and investment cost for existing capacities has been considered zero.
-
-Linear optimisation using one-hour time step with respect to Investment Cost.
-
-By Behrang SHIRIZADEH -  February 2019
+This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+Written by Behrang Shirizadeh, Quentin Perrier and Philippe Quirion, October 2020
 $Offtext
 *-------------------------------------------------------------------------------
 *                                Defining the sets
